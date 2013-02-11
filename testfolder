@@ -1,0 +1,45 @@
+<?php
+
+class Kbtdevelopers_KbtsPaypalAllowLimit_Block_Onepage_Payment_Methods extends Mage_Checkout_Block_Onepage_Payment_Methods {
+    
+    /**
+     * Retrieve availale payment methods - Check Threshold if not meet thresold Paypa will ignore
+     *
+     * @return array
+     */
+    public function getMethods()
+    {
+        $methods = $this->getData('methods');
+        if (is_null($methods)) {
+            $quote = $this->getQuote();
+            $store = $quote ? $quote->getStoreId() : null;
+            $methods = $this->helper('payment')->getStoreMethods($store, $quote);
+            $total = $quote->getBaseSubtotal();
+            
+            $thresoldamount = Mage::getStoreConfig('paypal/paypalthresold_group/paypalthresold_input',Mage::app()->getStore());
+            $isPaypalUse = FALSE;
+            if($total >= $thresoldamount){
+                $isPaypalUse = TRUE;
+            }
+            foreach ($methods as $key => $method) {
+                $isAllowedPaypal = TRUE;
+                    if (preg_match("/paypal/i", $method->getCode())) {
+                    if(!$isPaypalUse){
+                        $isAllowedPaypal = FALSE;
+                    }
+                }
+                
+                if ($this->_canUseMethod($method) && $isAllowedPaypal && 
+                        ($total != 0 || $method->getCode() == 'free'  || 
+                                    ($quote->hasRecurringItems() && $method->canManageRecurringProfiles()))) {
+                    $this->_assignMethod($method);
+                } else {
+                    unset($methods[$key]);
+                }
+            }
+            $this->setData('methods', $methods);
+        }
+        return $methods;
+    }
+
+}
